@@ -1,7 +1,19 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# File Name: gcn.py
+# Author: Jiezhong Qiu
+# Create Time: 2017/12/17 14:11
+# TODO:
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import print_function
+
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
-from layers import BatchGraphConvolution
+from gcn_layers import BatchGraphConvolution
 
 
 class BatchGCN(nn.Module):

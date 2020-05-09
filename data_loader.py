@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# File Name: data_loader.py
+# Author: Jiezhong Qiu
+# Create Time: 2017/12/13 16:41
+# TODO:
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import print_function
+
 import numpy as np
 import os
 import torch
@@ -30,17 +42,16 @@ class ChunkSampler(Sampler):
     def __len__(self):
         return self.num_samples
 
+
 class InfluenceDataSet(Dataset):
     def __init__(self, file_dir, embedding_dim, seed, shuffle, model):
-
-        file_dir = 'weibo'
         self.graphs = np.load(os.path.join(file_dir, "adjacency_matrix.npy")).astype(np.float32)
 
         # self-loop trick, the input graphs should have no self-loop
         identity = np.identity(self.graphs.shape[1])
         self.graphs += identity
         self.graphs[self.graphs != 0] = 1.0
-        if model == "gat":
+        if model == "gat" or model == "pscn":
             self.graphs = self.graphs.astype(np.dtype('B'))
         elif model == "gcn":
             # normalized graph laplacian for GCN: D^{-1/2}AD^{-1/2}
@@ -113,5 +124,52 @@ class InfluenceDataSet(Dataset):
         return self.graphs[idx], self.influence_features[idx], self.labels[idx], self.vertices[idx]
 
 
+class PatchySanDataSet(InfluenceDataSet):
+    def get_bfs_order(self, g, v, size, key):
+        order, indices, _ = g.bfs(v, mode="ALL")
+        for j, start in enumerate(indices[:-1]):
+            if start >= size:
+                break
+            end = indices[j + 1]
+            order[start:end] = sorted(order[start:end],
+                    key=lambda x: key[x][0],
+                    reverse=True)
 
-        
+        return order[:size]
+
+    def __init__(self, file_dir, embedding_dim, seed, shuffle,
+            model, sequence_size=8, stride=1, neighbor_size=8):
+        assert model == "pscn"
+        super(PatchySanDataSet, self).__init__(file_dir,
+                embedding_dim, seed, shuffle, model)
+        n_vertices = self.graphs.shape[1]
+
+        logger.info("generating receptive fields...")
+        self.receptive_fields = []
+        for i in range(self.graphs.shape[0]):
+            adj = self.graphs[i]
+            edges = list(zip(*np.where(adj)))
+            g = igraph.Graph(edges=edges, directed=False)
+            assert(g.vcount() == n_vertices)
+            g.simplify()
+
+            sequence = self.get_bfs_order(g, n_vertices - 1,
+                    sequence_size, self.influence_features[i])
+            neighborhoods = np.zeros((sequence_size, neighbor_size), dtype=np.int32)
+            neighborhoods.fill(-1)
+
+            for j, v in enumerate(sequence):
+                if v < 0:
+                    break
+                shortest = list(itertools.islice(g.bfsiter(int(v), mode='ALL'), neighbor_size))
+                for k, vtx in enumerate(shortest):
+                    neighborhoods[j][k] = vtx.index
+
+            neighborhoods = neighborhoods.reshape(sequence_size * neighbor_size)
+            self.receptive_fields.append(neighborhoods)
+        self.receptive_fields = np.array(self.receptive_fields, dtype=np.int32)
+        logger.info("receptive fields generated!")
+
+    def __getitem__(self, idx):
+        return self.receptive_fields[idx], self.influence_features[idx], \
+                self.labels[idx], self.vertices[idx]

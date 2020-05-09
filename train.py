@@ -1,3 +1,15 @@
+#!/usr/bin/env python
+# encoding: utf-8
+# File Name: train.py
+# Author: Jiezhong Qiu
+# Create Time: 2017/11/08 07:43
+# TODO:
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from __future__ import division
+from __future__ import print_function
+
 import time
 import argparse
 import numpy as np
@@ -9,10 +21,13 @@ from torch.utils.data import DataLoader
 
 from gcn import BatchGCN
 from gat import BatchGAT
+from pscn import BatchPSCN
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
-from data_loader import *
+from data_loader import ChunkSampler
+from data_loader import InfluenceDataSet
+from data_loader import PatchySanDataSet
 
 import os
 import shutil
@@ -104,12 +119,6 @@ valid_loader = DataLoader(influence_dataset, batch_size=args.batch,
                         sampler=ChunkSampler(test_start - valid_start, valid_start))
 test_loader = DataLoader(influence_dataset, batch_size=args.batch,
                         sampler=ChunkSampler(N - test_start, test_start))
-
-
-
-
-
-
 
 # Model and optimizer
 if args.model == "gcn":
