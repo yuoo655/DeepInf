@@ -16,11 +16,11 @@ attn = self.leaky_relu(attn)
 attn = self.softmax(attn)
 ```
 
-![Image text](1.png)
+![Image text](./1.png)
 
 gat:串联用于中间层，将平均值用于最后一层
 
-![Image text](2.png)
+![Image text](./2.png)
 
 #**GCN实现**
 
@@ -29,7 +29,7 @@ gat:串联用于中间层，将平均值用于最后一层
 support = torch.bmm(x, expand_weight)
 output = torch.bmm(lap, support)
  ``` 
-![Image text](3.png)
+![Image text](./3.png)
 
 **实现了论文中的AXW**
 
